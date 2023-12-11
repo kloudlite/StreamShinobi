@@ -1,0 +1,14 @@
+version: "3"
+tasks:
+  runclient:
+    cmds:
+      - MODE=client go run ./n-proxy
+
+
+  runserver:
+    cmds:
+      - PROXYCONFIG=./conf.yaml go run ./n-proxy
+
+  build:
+    cmds:
+      - go build -o n-proxy main.go
