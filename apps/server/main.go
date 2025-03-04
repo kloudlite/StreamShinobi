@@ -147,7 +147,7 @@ func withUdpConn(nc *nats.Conn, service *config.Service) error {
 
 			_, err = service.UdpConn.WriteToUDP(msg.Data, u)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println(err, "err1")
 				return
 			}
 		})
@@ -195,25 +195,24 @@ func withTcpConn(nc *nats.Conn, service *config.Service) error {
 	encodedDestAddr := base64.StdEncoding.EncodeToString([]byte(fmt.Sprint(service.Target.Host, ":", service.Target.Port)))
 	// fmt.Println("EncodedDestAddr", encodedDestAddr)
 
-	go func() {
-		nc.Subscribe(fmt.Sprint("connection.", "myid.", encodedAddr, ".", encodedDestAddr, ".tcp.reply"), func(msg *nats.Msg) {
-			_, err := accept.Write(msg.Data)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		})
-	}()
+	rply, err := nc.Subscribe(fmt.Sprint("connection.", "myid.", encodedAddr, ".", encodedDestAddr, ".tcp.reply"), func(msg *nats.Msg) {
 
-	go func() {
-		nc.Subscribe(fmt.Sprint("connection.", "myid.", encodedAddr, ".", encodedDestAddr, ".tcp.done"), func(msg *nats.Msg) {
-			err := accept.Close()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		})
-	}()
+		_, err := accept.Write(msg.Data)
+		if err != nil {
+			fmt.Println(err, "err23", accept)
+			return
+		}
+	})
+
+	done, err := nc.Subscribe(fmt.Sprint("connection.", "myid.", encodedAddr, ".", encodedDestAddr, ".tcp.done"), func(msg *nats.Msg) {
+		fmt.Println("got done")
+
+		err := accept.Close()
+		if err != nil {
+			fmt.Println(err, "lksjdflk")
+			return
+		}
+	})
 
 	go func() {
 		// Read Data into buffer and write to back to client
@@ -225,17 +224,21 @@ func withTcpConn(nc *nats.Conn, service *config.Service) error {
 		}()
 		buffer := make([]byte, 1024)
 		for {
+
 			n, err2 := accept.Read(buffer)
 			if err2 == io.EOF {
+				fmt.Println(3)
 				break
 			}
 			if err != nil {
+				fmt.Println(2)
 				break
 			}
 			// base64 encode remote addr
 
 			err := nc.Publish(fmt.Sprint("connection.", "myid.", encodedAddr, ".", encodedDestAddr, ".tcp"), buffer[:n])
 			if err != nil {
+				fmt.Println(1)
 				break
 			}
 		}
@@ -254,7 +257,7 @@ func runLoop(service *config.Service, nc *nats.Conn) error {
 			}
 		} else {
 			if err := withUdpConn(nc, service); err != nil {
-				fmt.Println(err)
+				fmt.Println(err, "here3")
 			}
 
 			fmt.Println("udp")
